@@ -2,22 +2,28 @@ FROM ubuntu:20.04
 
 
 RUN apt update && \
-    apt install -y python \
-    cmake 
+    apt upgrade -y && \
+    apt install software-properties-common -y && \
+    add-apt-repository ppa:deadsnakes/ppa && \
+    apt install -y python3.10
+
+#Building cmake
+WORKDIR /opt
+
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y build-essential libssl-dev wget &&\
+    wget https://github.com/Kitware/CMake/releases/download/v3.20.0/cmake-3.20.0.tar.gz &&\
+    tar -zxvf cmake-3.20.0.tar.gz && \
+    cd cmake-3.20.0 && \
+    ./bootstrap && \
+    make && \
+    make install
 
 RUN apt install -y python3-pip
 RUN apt install -y git
 # RUN apt-get update && \
 #     apt-get install 
-
-#RUN mkdir /opt
-COPY requirements.txt /opt/requirements.txt
-COPY build-requirements.txt /opt/build-requirements.txt
-COPY pytorch-requirements.txt /opt/pytorch-requirements.txt
-COPY test-requirements.txt /opt/test-requirements.txt
-COPY torchvision-requirements.txt /opt/torchvision-requirements.txt
-
-RUN python3 -m pip install -r /opt/requirements.txt
 
 #Building mlir
 
@@ -28,6 +34,8 @@ WORKDIR /opt/llvm-project/build
 
 RUN apt-get update && \
     apt-get install -y clang lld lldb ninja-build
+
+RUN python3 -m pip install numpy pybind11
 
 RUN cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_PROJECTS="mlir" \
