@@ -13,6 +13,8 @@
 #include <vector>
 #include <optional>
 
+#include <typeinfo>
+#include <iostream>
 namespace toy {
 
 class Parser {
@@ -25,9 +27,13 @@ public:
         std::vector<FunctionAST> functions;
 
         while (auto f = parseDefinition()) {
+
+
             functions.push_back(std::move(*f));
             if (lexer.getCurToken() == tok_eof)
+            {
                 break;
+            }
         }
 
         if (lexer.getCurToken() != tok_eof)
@@ -87,7 +93,7 @@ private:
             if (lexer.getCurToken() == ']')
                 break;
 
-            if (lexer.getCurToken() == ',')
+            if (lexer.getCurToken() != ',')
                 return parseError<ExprAST>("] or ,", "in literal expression");
 
             lexer.getNextToken();
@@ -215,7 +221,7 @@ private:
             int tok_prec = getTokPrecedence();
 
 
-            if (tokPrec < exprPrec)
+            if (tok_prec < exprPrec)
                 return lhs;
 
             int binOp = lexer.getCurToken();
@@ -229,8 +235,8 @@ private:
 
             int nextPrec = getTokPrecedence();
 
-            if (tokPrec < nextPrec) {
-                rhs = parseBinOpRHS(tokPrec + 1, std::move(rhs));
+            if (tok_prec < nextPrec) {
+                rhs = parseBinOpRHS(tok_prec + 1, std::move(rhs));
                 if (!rhs)
                     return nullptr;
             }
@@ -245,7 +251,6 @@ private:
 
         if (!lhs)
             return nullptr;
-        
         return parseBinOpRHS(0, std::move(lhs));
 
     }
@@ -312,16 +317,16 @@ private:
         auto exprList = std::make_unique<ExprASTList>();
 
         while (lexer.getCurToken() == ';')
-            lexer.consume(Token(";"));
+            lexer.consume(Token(';'));
 
         while (lexer.getCurToken() != '}' && lexer.getCurToken() != tok_eof) {
+
             if (lexer.getCurToken() == tok_var) {
                 auto varDecl = parseDeclaration();
                 if (!varDecl)
                     return nullptr;
                 exprList->push_back(std::move(varDecl));
             }
-
             else if (lexer.getCurToken() == tok_return)
             {
                 auto ret = parseReturn();
@@ -329,10 +334,10 @@ private:
                     return nullptr;
                 exprList->push_back(std::move(ret));
             }
-
             else
             {
                 auto expr = parseExpression();
+                
                 if (!expr)
                     return nullptr;
                 exprList->push_back(std::move(expr));
@@ -341,7 +346,7 @@ private:
             if (lexer.getCurToken() != ';')
                 return parseError<ExprASTList>(";", "after expression");
 
-            while (lexer.getCurToken() != ';')
+            while (lexer.getCurToken() == ';')
                 lexer.consume(Token(';'));
 
         }
@@ -354,9 +359,9 @@ private:
 
     }
 
-    std::unique_ptr<PrototypeAST> parsePrototype{
+    std::unique_ptr<PrototypeAST> parsePrototype()
+    {
         auto loc = lexer.getLastLocation();
-
         if (lexer.getCurToken() != tok_def)
             return parseError<PrototypeAST>("def", "in prototype");
 
@@ -397,7 +402,9 @@ private:
         return std::make_unique<PrototypeAST>(std::move(loc), fnName, std::move(args));
     }
 
-        std::unique_ptr<FunctionAST> parseDefinition() {
+    std::unique_ptr<FunctionAST> parseDefinition() {
+
+        std::cout << __FILE__ << " " << __LINE__ << std::endl;
         auto proto = parsePrototype();
         if (!proto)
             return nullptr;
@@ -412,7 +419,7 @@ private:
         if (!isascii(lexer.getCurToken()))
             return -1;
 
-        switch (static_cast<char>(lexer.getCurtoken())) {
+        switch (static_cast<char>(lexer.getCurToken())) {
         case '-':
             return 20;
 

@@ -35,12 +35,12 @@ public:
     
     virtual ~ExprAST() = default;
 
-    ExprAST getKind() const { return kind; }
+    ExprASTKind getKind() const { return kind; }
 
     const Location &loc() { return location; }
 
 private:
-    const ExprASTKind kind,
+    const ExprASTKind kind;
     Location location;
 
 };
@@ -129,7 +129,7 @@ class BinaryExprAST : public ExprAST {
 public:
     char getOp() { return op; }
     ExprAST *getLHS() { return lhs.get(); }
-    ExprAST *getRHS() { retrun rhs.get(); }
+    ExprAST *getRHS() { return rhs.get(); }
 
     BinaryExprAST(Location loc, char op, std::unique_ptr<ExprAST> lhs,
                     std::unique_ptr<ExprAST> rhs)
@@ -145,7 +145,7 @@ class CallExprAST : public ExprAST {
 public:
     CallExprAST(Location loc, const std::string &callee,
                 std::vector<std::unique_ptr<ExprAST>> args)
-        : ExprAST(Expr_Call, std::move(loc), callee(callee)),
+        : ExprAST(Expr_Call, std::move(loc)), callee(callee),
             args(std::move(args)) {}
     
     llvm::StringRef getCallee() { return callee; }
@@ -173,17 +173,17 @@ class PrototypeAST {
     std::vector<std::unique_ptr<VariableExprAST>> args;
 
 public:
-    PrototypeAST(Location location, const std::string &name.
+    PrototypeAST(Location location, const std::string &name,
                   std::vector<std::unique_ptr<VariableExprAST>> args)
         : location(std::move(location)), name(name), args(std::move(args)) {}
     
     const Location &loc() { return location; }
     llvm::StringRef getName() const { return name; }
-    llvm::StringRef<std::unique_ptr<VariableExprAST>> getArgs() { return args; }
+    llvm::ArrayRef<std::unique_ptr<VariableExprAST>> getArgs() { return args; }
 };
 
 class FunctionAST {
-    std::unique_ptr<ProtoTypeAST> proto;
+    std::unique_ptr<PrototypeAST> proto;
     std::unique_ptr<ExprASTList> body;
 
 public:

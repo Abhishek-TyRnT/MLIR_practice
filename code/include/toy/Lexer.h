@@ -3,7 +3,7 @@
 #define TOY_LEXER_H_
 
 #include "llvm/ADT/StringRef.h"
-
+#include <iostream>
 #include <memory>
 #include <string>
 
@@ -15,7 +15,7 @@ struct Location {
 
 };
 
-struct Token : int {
+enum Token : int {
     tok_semicolon = ';',
     tok_paranthese_open = '(',
     tok_paranthese_close = ')',
@@ -24,7 +24,7 @@ struct Token : int {
     tok_sbracket_open = '[',
     tok_sbracket_close = ']',
 
-    tok_eof = -1,
+    tok_eof = 0,
 
     tok_return = -2,
     tok_var = -3,
@@ -38,15 +38,15 @@ struct Token : int {
 class Lexer {
 public:
 
-    Lexer(std::string filename) : lastlocation(
-        { std::make_shared<std::string>(std::move(filename)), 0,0 }
-    ) {}
+    Lexer(std::string filename)
+        : lastLocation(
+            { std::make_shared<std::string>(std::move(filename)), 0, 0 }) {}
 
     virtual ~Lexer() = default;
 
     Token getCurToken() { return curTok; }
 
-    void getNextToken() { return curTok = getTok(); }
+    Token getNextToken() { return curTok = getTok(); }
 
     void consume(Token tok) {
         assert(tok == curTok && "consume Token mismatch expectation");
@@ -64,7 +64,7 @@ public:
     }
 
     Location getLastLocation() {
-        return lastlocation;
+        return lastLocation;
     }
 
     int getLine() { return curLineNum; }
@@ -83,7 +83,7 @@ private:
         curLineBuffer = curLineBuffer.drop_front();
         if (curLineBuffer.empty())
             curLineBuffer = readNextLine();
-        if (next_char == '\n') {
+        if (nextchar == '\n') {
             ++curLineNum;
             curCol = 0;
         }
@@ -92,7 +92,7 @@ private:
     }
 
     Token getTok() {
-        while (issapce(lastChar))
+        while (isspace(lastChar))
             lastChar = Token(getNextChar());
 
         lastLocation.line = curLineNum;
@@ -103,13 +103,13 @@ private:
             while (isalnum((lastChar = Token(getNextChar()))) || lastChar == '_')
                 identifierStr += (char)lastChar;
 
-            if (identiferStr == 'return')
+            if (identifierStr == "return")
                 return tok_return;
-            if (identiferStr == "def")
+            if (identifierStr == "def")
                 return tok_def;
             if (identifierStr == "var")
                 return tok_var;
-            return tok_identifer;
+            return tok_identifier;
         }
 
         if (isdigit(lastChar) || lastChar == '.') {
@@ -123,7 +123,7 @@ private:
             return tok_number;
         }
 
-        if (lastChar == "#") {
+        if (lastChar == '#') {
 
             do {
                 lastChar = Token(getNextChar());
@@ -144,7 +144,7 @@ private:
 
     Token curTok = tok_eof;
 
-    Location lastlocation;
+    Location lastLocation;
 
     std::string identifierStr;
 

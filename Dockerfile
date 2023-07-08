@@ -5,7 +5,8 @@ RUN apt update && \
     apt upgrade -y && \
     apt install software-properties-common -y && \
     add-apt-repository ppa:deadsnakes/ppa && \
-    apt install -y python3.10
+    apt install -y python3.10 \
+    ninja-build
 
 #Building cmake
 WORKDIR /opt
@@ -32,17 +33,11 @@ RUN cd /opt/llvm-project && git reset --hard 26ee8947702d79ce2cab8e577f713685a5c
 RUN mkdir /opt/llvm-project/build
 WORKDIR /opt/llvm-project/build
 
-RUN apt-get update && \
-    apt-get install -y clang lld lldb ninja-build
-
 RUN python3 -m pip install numpy pybind11
 
 RUN cmake -G Ninja ../llvm \
    -DLLVM_ENABLE_PROJECTS="mlir" \
    -DLLVM_ENABLE_LLD=ON \
-   -DCMAKE_C_COMPILER=clang \
-   -DCMAKE_CXX_COMPILER=clang++ \
-   -DCMAKE_LINKER=lld \
    -DLLVM_INSTALL_UTILS=ON \
    -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
    -DLLVM_BUILD_EXAMPLES=ON \

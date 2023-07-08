@@ -2,13 +2,14 @@ set(LLVM_LINK_COMPONENTS
 	Support 
 	)
 
-add_toy_chapter(toyc-code
+add_llvm_executable(toyc-code
 			toyc.cpp
 			parser/AST.cpp
 		)
 
-include_directories(include/)
+include_directories("include/")
 
 target_link_libraries(toyc-code
 	PRIVATE
 		MLIRSupport)
+

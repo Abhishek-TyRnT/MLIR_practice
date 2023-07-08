@@ -50,9 +50,21 @@ static std::string loc(T* node) {
 		llvm::Twine(loc.col)).str();
 }
 
-#define INDENT()
-	Indent level_(curIndent);
-	indent();
+#define INDENT()  Indent level_(curIndent);  indent();  
+
+
+void ASTDumper::dump(const VarType& type)
+{
+	llvm::errs() << "<";
+	llvm::interleaveComma(type.shape, llvm::errs());
+	llvm::errs() << ">";
+}
+
+void ASTDumper::dump(VariableExprAST* node)
+{
+	INDENT()
+	llvm::errs() << "var: " << node->getName() << " " << loc(node) << "\n";
+}
 
 void ASTDumper::dump(ExprAST* expr) {
 	llvm::TypeSwitch<ExprAST*>(expr).Case<BinaryExprAST, CallExprAST, LiteralExprAST, NumberExprAST,
@@ -68,7 +80,7 @@ void ASTDumper::dump(ExprAST* expr) {
 void ASTDumper::dump(VarDeclExprAST* varDecl) {
 	INDENT();
 	llvm::errs() << "VarDecl " << varDecl->getName();
-	dump(VarDecl->getType());
+	dump(varDecl->getType());
 	llvm::errs() << " " << loc(varDecl) << "\n";
 	dump(varDecl->getInitVal());
 }
@@ -89,7 +101,7 @@ void ASTDumper::dump(NumberExprAST* num) {
 }
 
 void printLitHelper(ExprAST* litOrNum) {
-	if (auto* num = llvm::dyn_cast<NumberExprAST>(litOrnum)) {
+	if (auto* num = llvm::dyn_cast<NumberExprAST>(litOrNum)) {
 		llvm::errs() << num->getValue();
 		return;
 	}
@@ -144,7 +156,7 @@ void ASTDumper::dump(CallExprAST* node) {
 	llvm::errs() << "]\n";
 }
 
-void ASTdumper::dump(PrintExprAST* node) {
+void ASTDumper::dump(PrintExprAST* node) {
 	INDENT();
 	llvm::errs() << "Print [ " << loc(node) << "\n";
 	dump(node->getArg());
