@@ -6,7 +6,12 @@ set(CMAKE_CXX_STANDARD 17)
 find_package(LLVM)
 find_package(MLIR)
 
+set(MLIR_CMAKE_DIR "/usr/local/lib/cmake/mlir")
+list(APPEND CMAKE_MODULE_PATH "${MLIR_CMAKE_DIR}")
+
+include(AddMLIR)
 include(AddLLVM)
+include(TableGen)
 
 add_custom_target(Toy)
 set_target_properties(Toy PROPERTIES FOLDER Examples)

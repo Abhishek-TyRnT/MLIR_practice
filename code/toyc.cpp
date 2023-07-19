@@ -1,11 +1,22 @@
 
-
+#include "toy/Dialect.h"
+#include "toy/MLIRGen.h"
 #include "toy/Parser.h"
+
+#include "mlir/IR/AsmState.h"
+#include "mlir/IR/BuiltinOps.h"
+#include "mlir/IR/MLIRContext.h"
+#include "mlir/IR/Verifier.h"
+#include "mlir/Parser/Parser.h"
+#include "mlir/Pass/Pass.h"
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Transforms/Passes.h"
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ErrorOr.h"
 #include "llvm/Support/MemoryBuffer.h"
+#include "llvm/Support/SourceMgr.h"
 #include "llvm/Support/raw_ostream.h"
 
 using namespace toy;
@@ -16,15 +27,30 @@ static cl::opt<std::string> inputFilename(cl::Positional,
 										  cl::init("-"),
 										  cl::value_desc("filename"));
 
+namespace {
+	enum InputType { Toy, MLIR };
+}
+
+static cl::opt<enum InputType> inputType(
+	"x", cl::init(Toy), cl::desc("Decided the kind of output desired"),
+	cl::values(clEnumValN(Toy, "toy", "load the input file as a Toy source.")),
+	cl::values(clEnumValN(MLIR, "mlir",
+		"load the input file as an MLIR file"))
+);
+
 
 namespace {
-	enum Action { None, DumpAST };
+	enum Action { None, DumpAST, DumpMLIR };
 }
 
 static cl::opt<enum Action>
 emitAction("emit", cl::desc("Select the kind of output desired"),
-	cl::values(clEnumValN(DumpAST, "ast", "output of the AST dump")));
+	cl::values(clEnumValN(DumpAST, "ast", "output of the AST dump")),
+	cl::values(clEnumValN(DumpMLIR, "mlir", "output the MLIR dump"))
+	);
 
+
+static cl::opt<bool> enableOpt("opt", cl::desc("Enable optimizations"));
 
 std::unique_ptr<toy::ModuleAST> parseInputFile(llvm::StringRef filename) {
 	llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> fileOrErr =
@@ -41,20 +67,76 @@ std::unique_ptr<toy::ModuleAST> parseInputFile(llvm::StringRef filename) {
 	return parser.parseModule();
 }
 
+int dumpMLIR() {
+	mlir::MLIRContext context;
 
-int main(int argc, char** argv) {
-	cl::ParseCommandLineOptions(argc, argv, "toy compiler\n");
+	context.getOrLoadDialect<mlir::toy::ToyDialect>();
+
+	if (inputType != InputType::MLIR && !llvm::StringRef(inputFilename).endswith(".mlir"))
+	{
+		auto moduleAST = parseInputFile(inputFilename);
+		if (!moduleAST)
+			return 1;
+
+		module->dump();
+		return 0;
+	}
+
+	llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> fileOrErr =
+		llvm::MemoryBuffer::getFileOrSTDIN(inputFilename);
+
+	if (std::error_code ec = fileOrErr.getError()) {
+		llvm::errs() << "Could not open input file: " << ec.message() << "\n";
+		return -1;
+	}
+
+
+	llvm::SorceMgr sourceMgr;
+	sourceMgr.AddNewSourceBuffer(std::move(*fileOrErr), llvm::SMLoc());
+	mlir::OwningOpRef<mlir::ModuleOp> module =
+		mlir::parseSourceFile<mlir::ModuleOp>(sourceMgr, &context);
+
+	if (!module) {
+		llvm::errs() << "Error can't load file " << inputFilename << "\n";
+		return 3;
+	}
+
+	module->dump();
+	return 0;
+}
+
+int dumpAST() {
+	if (inputType == InputType::MLIR)
+	{
+		llvm::errs() << "Can't dump a Toy AST when the input is MLIR\n";
+		return 5;
+	}
 
 	auto moduleAST = parseInputFile(inputFilename);
+	if (!moduleAST)
+		return 1;
+
+	dump(*moduleAST);
+
+	return 0;
+}
+
+
+int main(int argc, char** argv) {
+
+	mlir::registerAsmPrinterCLOptions();
+	mlir::registerMLIRContextCLOptions();
+	cl::ParseCommandLineOptions(argc, argv, "toy compiler\n");
 
 	if (!moduleAST)
 		return 1;
 
 	switch (emitAction) {
 	case Action::DumpAST:
-		dump(*moduleAST);
-		return 0;
+		return dumpAST();
 
+	case Action::DumpMLIR:
+		return dumpMLIR();
 	default:
 		llvm::errs() << "No action specified (parsing only?), use -emit=<action>\n";
 
