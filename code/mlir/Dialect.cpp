@@ -12,7 +12,7 @@ using namespace mlir::toy;
 
 void ToyDialect::initialize() {
 	addOperations<
-#define GET_OPLIST
+#define GET_OP_LIST
 #include "toy/Ops.cpp.inc"
 	>();
 }
@@ -21,7 +21,7 @@ void ToyDialect::initialize() {
 static mlir::ParseResult parseBinaryOp(mlir::OpAsmParser& parser,
 	mlir::OperationState& result) {
 	SmallVector<mlir::OpAsmParser::UnresolvedOperand, 2> operands;
-	SMLoc operands Loc = parser.getCurrentLocation();
+	SMLoc operandsLoc = parser.getCurrentLocation();
 
 	Type type;
 
@@ -30,7 +30,7 @@ static mlir::ParseResult parseBinaryOp(mlir::OpAsmParser& parser,
 		parser.parseColonType(type))
 		return mlir::failure();
 
-	if (FunctionType functype = llvm::dyn_cast<FunctionType>(type))
+	if (FunctionType funcType = llvm::dyn_cast<FunctionType>(type))
 	{
 		if (parser.resolveOperands(operands, funcType.getInputs(), operandsLoc,
 			result.operands))
@@ -70,7 +70,7 @@ void ConstantOp::build(mlir::OpBuilder& builder, mlir::OperationState& state,
 	double value) {
 
 	auto dataType = RankedTensorType::get({}, builder.getF64Type());
-	auto dataAttribute = DenseElementAttr::get(dataType, value);
+	auto dataAttribute = DenseElementsAttr::get(dataType, value);
 
 	ConstantOp::build(builder, state, dataType, dataAttribute);
 }
@@ -95,7 +95,7 @@ void ConstantOp::print(mlir::OpAsmPrinter& printer) {
 	printer << getValue();
 }
 
-mlir::LogicalResult ConstantOp::verfiy() {
+mlir::LogicalResult ConstantOp::verify() {
 	auto resultType = llvm::dyn_cast<mlir::RankedTensorType>(getResult().getType());
 
 	if (!resultType)
@@ -138,7 +138,7 @@ void AddOp::print(mlir::OpAsmPrinter& p)
 }
 
 void GenericCallOp::build(mlir::OpBuilder& builder, mlir::OperationState& state,
-	StringRef callee, ArrayRef<mlir::value> arguments) {
+	StringRef callee, ArrayRef<mlir::Value> arguments) {
 
 	state.addTypes(UnrankedTensorType::get(builder.getF64Type()));
 	state.addOperands(arguments);
@@ -166,7 +166,7 @@ mlir::ParseResult FuncOp::parse(mlir::OpAsmParser& parser,
 	return mlir::function_interface_impl::parseFunctionOp(
 		parser, result, false,
 		getFunctionTypeAttrName(result.name), buildFuncType,
-		getArgAttrsName(result.name), getResAttrsAttrName(result.name)
+		getArgAttrsAttrName(result.name), getResAttrsAttrName(result.name)
 	);
 }
 
@@ -217,7 +217,7 @@ mlir::LogicalResult ReturnOp::verify()
 	auto resultType = results.front();
 
 	if (inputType == resultType || llvm::isa<mlir::UnrankedTensorType>(inputType) ||
-		llvm::isa<mlir::UnrankedTensortype>(resultType))
+		llvm::isa<mlir::UnrankedTensorType>(resultType))
 		return mlir::success();
 
 	return emitError() << "type of retrun operand (" << inputType
@@ -225,10 +225,10 @@ mlir::LogicalResult ReturnOp::verify()
 		<< ")";
 }
 
-void TranseposeOp::build(mlir::OpBuilder& builder, mlir::OperationState& state,
+void TransposeOp::build(mlir::OpBuilder& builder, mlir::OperationState& state,
 	mlir::Value value) {
 	state.addTypes(UnrankedTensorType::get(builder.getF64Type()));
-	state.addOperands();
+	state.addOperands(value);
 }
 
 mlir::LogicalResult TransposeOp::verify() {
