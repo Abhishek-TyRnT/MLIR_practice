@@ -7,7 +7,7 @@
 namespace mlir {
 	class MLIRContext;
 	template <typename OpTy>
-	class OwningOpref;
+	class OwningOpRef;
 	class ModuleOp;
 }
 
@@ -15,7 +15,7 @@ namespace mlir {
 namespace toy {
 	class ModuleAST;
 
-	mlir::OwningOpref<mlir::ModuleOp> mlirGen(mlir::MLIRContext& context,
+	mlir::OwningOpRef<mlir::ModuleOp> mlirGen(mlir::MLIRContext& context,
 		ModuleAST& moduleAST);
 }
 

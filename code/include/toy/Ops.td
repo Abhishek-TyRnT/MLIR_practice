@@ -37,7 +37,7 @@ def ConstantOp : Toy_Op<"constant", [Pure]> {
 	let hasCustomAssemblyFormat = 1;
 
 	let builders = [
-		OpBuilder<(ins "DenseElementAttr":$value), [{
+		OpBuilder<(ins "DenseElementsAttr":$value), [{
 			build($_builder, $_state, value.getType(), value);}]>,
 		OpBuilder<(ins "double":$value)>
 		];
@@ -96,11 +96,6 @@ def FuncOp : Toy_Op<"func", [
 		"StringRef":$name, "FunctionType":$type,
 		CArg<"ArrayRef<NamedAttribute>", "{}">:$attrs)>
 		];
-
-	let builders = [OpBuilder<(ins
-		"StringRef":$name, "FunctionType":$type,
-		CArg<"ArrayRef<NamedAttribute>", "{}">:$attrs)
-		>];
 	
 	let extraClassDeclaration = [{
 		ArrayRef<Type> getArgumentTypes() { return getFunctionType().getInputs(); }
@@ -122,7 +117,7 @@ def GenericCallOp : Toy_Op<"generic_call"> {
 		
 		```mlir
 			%4 = toy.generic_call @my_func(%1, %3)
-				: (tensor<2x3xf64>, tensor<2x3xf54>) -> tensor<*xf64}
+				: (tensor<2x3xf64>, tensor<2x3xf64>) -> tensor<*xf64}
 		```
 		
 		This is only valid if a function named "my_func" exists and takes two arguments.
@@ -246,5 +241,4 @@ def TransposeOp : Toy_Op<"transpose"> {
 	let hasVerifier  = 1;
 }
 
-
-#endif
+#endif // TOY_OPS

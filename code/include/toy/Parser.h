@@ -387,6 +387,9 @@ private:
                 auto decl = std::make_unique<VariableExprAST>(std::move(loc), name);
                 args.push_back(std::move(decl));
 
+                if (lexer.getCurToken() != ',')
+                    break;
+                lexer.consume(Token(','));
                 if (lexer.getCurToken() != tok_identifier)
                     return parseError<PrototypeAST>(
                         "identifier", "after ',' in function parameter list"
@@ -404,7 +407,6 @@ private:
 
     std::unique_ptr<FunctionAST> parseDefinition() {
 
-        std::cout << __FILE__ << " " << __LINE__ << std::endl;
         auto proto = parsePrototype();
         if (!proto)
             return nullptr;

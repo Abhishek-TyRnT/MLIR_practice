@@ -109,7 +109,7 @@ mlir::LogicalResult ConstantOp::verify() {
 			<< attrType.getRank() << " != " << resultType.getRank();
 	}
 
-	for (int dim = 0, dimE = attrType.getShape()[dim]; dim < dimE; ++dim)
+	for (int dim = 0, dimE = attrType.getRank(); dim < dimE; ++dim)
 	{
 		if (attrType.getShape()[dim] != resultType.getShape()[dim])
 		{

@@ -2,15 +2,14 @@
 #include "toy/Dialect.h"
 #include "toy/MLIRGen.h"
 #include "toy/Parser.h"
+#include <memory>
 
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Verifier.h"
 #include "mlir/Parser/Parser.h"
-#include "mlir/Pass/Pass.h"
-#include "mlir/Pass/PassManager.h"
-#include "mlir/Transforms/Passes.h"
+
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
@@ -69,13 +68,18 @@ std::unique_ptr<toy::ModuleAST> parseInputFile(llvm::StringRef filename) {
 
 int dumpMLIR() {
 	mlir::MLIRContext context;
-
+	
 	context.getOrLoadDialect<mlir::toy::ToyDialect>();
 
 	if (inputType != InputType::MLIR && !llvm::StringRef(inputFilename).endswith(".mlir"))
 	{
 		auto moduleAST = parseInputFile(inputFilename);
 		if (!moduleAST)
+			return 6;
+
+		mlir::OwningOpRef<mlir::ModuleOp> module = mlirGen(context, *moduleAST);
+
+		if (!module)
 			return 1;
 
 		module->dump();
@@ -91,7 +95,7 @@ int dumpMLIR() {
 	}
 
 
-	llvm::SorceMgr sourceMgr;
+	llvm::SourceMgr sourceMgr;
 	sourceMgr.AddNewSourceBuffer(std::move(*fileOrErr), llvm::SMLoc());
 	mlir::OwningOpRef<mlir::ModuleOp> module =
 		mlir::parseSourceFile<mlir::ModuleOp>(sourceMgr, &context);
@@ -127,9 +131,6 @@ int main(int argc, char** argv) {
 	mlir::registerAsmPrinterCLOptions();
 	mlir::registerMLIRContextCLOptions();
 	cl::ParseCommandLineOptions(argc, argv, "toy compiler\n");
-
-	if (!moduleAST)
-		return 1;
 
 	switch (emitAction) {
 	case Action::DumpAST:

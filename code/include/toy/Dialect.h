@@ -8,7 +8,7 @@
 #include "mlir/Interfaces/SideEffectInterfaces.h"
 
 
-include "toy/Dialect.h.inc"
+#include "toy/Dialect.h.inc"
 
 #define GET_OP_CLASSES
 

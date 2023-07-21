@@ -2,7 +2,7 @@
 #include "toy/AST.h"
 #include "toy/Dialect.h"
 
-#include "mlir/IR/Atrributes.h"
+#include "mlir/IR/Attributes.h"
 #include "mlir/IR/Builders.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/BuiltinTypes.h"
@@ -38,7 +38,9 @@ public:
 		theModule = mlir::ModuleOp::create(builder.getUnknownLoc());
 
 		for (FunctionAST& f : moduleAST)
-			mlirGen(f);
+		{
+			mlir::toy::FuncOp x = mlirGen(f);
+		}
 
 		if (failed(mlir::verify(theModule)))
 		{
@@ -59,40 +61,34 @@ private:
 
 
 	mlir::Location loc(const Location& loc) {
-		return mlir::FileLineColloc::get(builder.getStringAttr(*loc.file), loc.line, loc.col);
+		return mlir::FileLineColLoc::get(builder.getStringAttr(*loc.file), loc.line, loc.col);
 	}
 
 	mlir::LogicalResult declare(llvm::StringRef var, mlir::Value value)
 	{
 		if (symbolTable.count(var))
-			return mlir::failure;
+			return mlir::failure();
 		symbolTable.insert(var, value);
 		return mlir::success();
 	}
 
 	mlir::toy::FuncOp mlirGen(PrototypeAST& proto) {
 		auto location = loc(proto.loc());
-
 		llvm::SmallVector<mlir::Type, 4> argTypes(proto.getArgs().size(),
-			getType(VarTpe{}));
-
+			getType(VarType{}));
 		auto funcType = builder.getFunctionType(argTypes, std::nullopt);
 
 		return builder.create<mlir::toy::FuncOp>(location, proto.getName(), funcType);
 	}
 
 	mlir::toy::FuncOp mlirGen(FunctionAST& funcAST) {
-		ScopedHashTable<llvm::StringRef, mlir::Value> varScope(symbolTable);
-
+		ScopedHashTableScope<llvm::StringRef, mlir::Value> varScope(symbolTable);
 		builder.setInsertionPointToEnd(theModule.getBody());
 		mlir::toy::FuncOp function = mlirGen(*funcAST.getProto());
-
 		if (!function)
 			return nullptr;
-
 		mlir::Block& entryBlock = function.front();
 		auto protoArgs = funcAST.getProto()->getArgs();
-
 		for (const auto nameValue :
 			llvm::zip(protoArgs, entryBlock.getArguments()))
 		{
@@ -102,29 +98,24 @@ private:
 
 		}
 
-
 		builder.setInsertionPointToStart(&entryBlock);
-
 		if (mlir::failed(mlirGen(*funcAST.getBody())))
 		{
 			function.erase();
 			return nullptr;
 		}
-
 		ReturnOp returnOp;
-
 		if (!entryBlock.empty())
 			returnOp = dyn_cast<ReturnOp>(entryBlock.back());
-
 		if (!returnOp) {
 			builder.create<ReturnOp>(loc(funcAST.getProto()->loc()));
 		}
+
 		else if (returnOp.hasOperand()) {
 			function.setType(builder.getFunctionType(
-				function.getFunctionType().getInputs(), getType(Vartype{})
+				function.getFunctionType().getInputs(), getType(VarType{})
 			));
 		}
-
 		return function;
 	}
 
@@ -202,7 +193,7 @@ private:
 		auto dataType = mlir::RankedTensorType::get(lit.getDims(), elementType);
 
 		auto dataAttribute =
-			mlir::DenseElementsAttr::get(datatType, llvm::ArrayRef(data));
+			mlir::DenseElementsAttr::get(dataType, llvm::ArrayRef(data));
 		        
 		return builder.create<ConstantOp>(loc(lit.loc()), type, dataAttribute);
 	}
@@ -228,7 +219,7 @@ private:
 
 		SmallVector<mlir::Value, 4> operands;
 
-		for (auto& expr::call.getArgs())
+		for (auto& expr : call.getArgs())
 		{
 			auto arg = mlirGen(*expr);
 			if (!arg)
@@ -365,7 +356,7 @@ private:
 }
 
 namespace toy {
-	mlir::OwningOpref<mlir::ModuleOp> mlirGen(mlir::MLIRContext& context,
+	mlir::OwningOpRef<mlir::ModuleOp> mlirGen(mlir::MLIRContext& context,
 		ModuleAST& moduleAST)
 	{
 		return MLIRGenImpl(context).mlirGen(moduleAST);
