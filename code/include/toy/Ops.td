@@ -170,7 +170,7 @@ def PrintOp : Toy_Op<"print"> {
 
 }
 
-def ReshapeOp : Toy_Op<"reshape"> {
+def ReshapeOp : Toy_Op<"reshape", [Pure]> {
 	let summary = "tensor reshape operation";
 	let description = [{
 		Reshape operation is transforming its input tensor into a new tensor with
@@ -182,6 +182,8 @@ def ReshapeOp : Toy_Op<"reshape"> {
 		
 	
 	let arguments = (ins F64Tensor:$input);
+
+	let hasCanonicalizer = 1;
 	
 	let results = (outs StaticShapeTensorOf<[F64]>);
 	
@@ -224,11 +226,13 @@ def ReturnOp : Toy_Op<"return", [Pure, HasParent<"FuncOp">,
 	let hasVerifier = 1;
 }
 
-def TransposeOp : Toy_Op<"transpose"> {
+def TransposeOp : Toy_Op<"transpose", [Pure]> {
 	let summary = "transpose operation";
 
 	let arguments = (ins F64Tensor:$input);
 	let results = (outs F64Tensor);
+
+	let hasCanonicalizer = 1;
 
 	let assemblyFormat = [{
 		`(` $input `:` type($input) `)` attr-dict `to` type(results)

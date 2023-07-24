@@ -9,7 +9,8 @@
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Verifier.h"
 #include "mlir/Parser/Parser.h"
-
+#include "mlir/Pass/PassManager.h"
+#include "mlir/Transforms/Passes.h"
 
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
@@ -36,7 +37,6 @@ static cl::opt<enum InputType> inputType(
 	cl::values(clEnumValN(MLIR, "mlir",
 		"load the input file as an MLIR file"))
 );
-
 
 namespace {
 	enum Action { None, DumpAST, DumpMLIR };
@@ -66,43 +66,63 @@ std::unique_ptr<toy::ModuleAST> parseInputFile(llvm::StringRef filename) {
 	return parser.parseModule();
 }
 
-int dumpMLIR() {
-	mlir::MLIRContext context;
-	
-	context.getOrLoadDialect<mlir::toy::ToyDialect>();
 
-	if (inputType != InputType::MLIR && !llvm::StringRef(inputFilename).endswith(".mlir"))
+int loadMLIR(llvm::SourceMgr& sourceMgr, mlir::MLIRContext& context,
+	mlir::OwningOpRef<mlir::ModuleOp>& module)
+{
+	if (inputType != InputType::MLIR &&
+		!llvm::StringRef(inputFilename).endswith(".mlir"))
 	{
 		auto moduleAST = parseInputFile(inputFilename);
 		if (!moduleAST)
 			return 6;
 
-		mlir::OwningOpRef<mlir::ModuleOp> module = mlirGen(context, *moduleAST);
-
-		if (!module)
-			return 1;
-
-		module->dump();
-		return 0;
+		module = mlirGen(context, *moduleAST);
+		return !module ? 1 : 0;
 	}
 
 	llvm::ErrorOr<std::unique_ptr<llvm::MemoryBuffer>> fileOrErr =
 		llvm::MemoryBuffer::getFileOrSTDIN(inputFilename);
 
-	if (std::error_code ec = fileOrErr.getError()) {
+	if (std::error_code ec = fileOrErr.getError())
+	{
 		llvm::errs() << "Could not open input file: " << ec.message() << "\n";
 		return -1;
 	}
 
 
-	llvm::SourceMgr sourceMgr;
 	sourceMgr.AddNewSourceBuffer(std::move(*fileOrErr), llvm::SMLoc());
-	mlir::OwningOpRef<mlir::ModuleOp> module =
-		mlir::parseSourceFile<mlir::ModuleOp>(sourceMgr, &context);
+	module = mlir::parseSourceFile<mlir::ModuleOp>(sourceMgr, &context);
 
 	if (!module) {
 		llvm::errs() << "Error can't load file " << inputFilename << "\n";
 		return 3;
+	}
+
+	return 0;
+}
+int dumpMLIR() {
+	mlir::MLIRContext context;
+	
+	context.getOrLoadDialect<mlir::toy::ToyDialect>();
+
+	mlir::OwningOpRef<mlir::ModuleOp> module;
+	llvm::SourceMgr sourceMgr;
+	mlir::SourceMgrDiagnosticHandler sourceMgrHandler(sourceMgr, &context);
+
+	if (int error = loadMLIR(sourceMgr, context, module))
+		return error;
+
+
+	if (enableOpt) {
+		mlir::PassManager pm(module.get()->getName());
+
+		if (mlir::failed(mlir::applyPassManagerCLOptions(pm)))
+			return 4;
+		pm.addNestedPass<mlir::toy::FuncOp>(mlir::createCanonicalizerPass());
+
+		if (mlir::failed(pm.run(*module)))
+			return 4;
 	}
 
 	module->dump();
@@ -130,6 +150,8 @@ int main(int argc, char** argv) {
 
 	mlir::registerAsmPrinterCLOptions();
 	mlir::registerMLIRContextCLOptions();
+	mlir::registerPassManagerCLOptions();
+
 	cl::ParseCommandLineOptions(argc, argv, "toy compiler\n");
 
 	switch (emitAction) {
