@@ -1,10 +1,12 @@
 #ifndef TOY_OPS
 #define TOY_OPS
 
-include "mlir/IR/OpBase.td"
 include "mlir/IR/FunctionInterfaces.td"
 include "mlir/IR/SymbolInterfaces.td"
+include "mlir/Interfaces/CallInterfaces.td"
+include "mlir/Interfaces/CastInterfaces.td"
 include "mlir/Interfaces/SideEffectInterfaces.td"
+include "toy/ShapeInferenceInterface.td"
 
 
 def Toy_Dialect : Dialect {
@@ -46,7 +48,8 @@ def ConstantOp : Toy_Op<"constant", [Pure]> {
 }
 
 
-def AddOp : Toy_Op<"add"> {
+def AddOp : Toy_Op<"add",
+			[Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
 	let summary = "element-wise addition operation";
 
 	let description = [{
@@ -65,7 +68,30 @@ def AddOp : Toy_Op<"add"> {
 }
 
 
+def CastOp : Toy_Op<"cast", [
+	DeclareOpInterfaceMethods<CastOpInterface>,
+	DeclareOpInterfaceMethods<ShapeInferenceOpInterface>,
+	Pure,
+	SameOperandsAndResultShape
+	]> {
+	let summary = "shape cast operation";
+
+	let description = [{
+		The "cast" operation converts a tensor from one type to an equivalent type
+		without changing any data elements. The source and destination types must both be tensor types with
+		same element type. If both are ranked, then shape is required to match. The operation is invalid if converting to a 
+		mismatching constant dimension.
+		}];
+
+	let arguments = (ins F64Tensor:$input);
+	let results = (outs F64Tensor:$output);
+
+	let assemblyFormat = "$input attr-dict `:` type($input) `to` type($output)";
+	
+	}
+
 def FuncOp : Toy_Op<"func", [
+	DeclareOpInterfaceMethods<CallableOpInterface>,
 	FunctionOpInterface, IsolatedFromAbove]> {
 	
 	let summary = "user defined function operation";
@@ -107,7 +133,8 @@ def FuncOp : Toy_Op<"func", [
 	let skipDefaultBuilders = 1;
 }
 
-def GenericCallOp : Toy_Op<"generic_call"> {
+def GenericCallOp : Toy_Op<"generic_call",
+	[DeclareOpInterfaceMethods<CallOpInterface>]> {
 	let summary = "generic call operation";
 
 	let description = [{
@@ -138,7 +165,8 @@ def GenericCallOp : Toy_Op<"generic_call"> {
 }
 
 
-def MulOp : Toy_Op<"mul">{
+def MulOp : Toy_Op<"mul",
+	[Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]>{
 	let summary = "element-wise multiplication operation";
 
 	let description = [{
@@ -226,7 +254,7 @@ def ReturnOp : Toy_Op<"return", [Pure, HasParent<"FuncOp">,
 	let hasVerifier = 1;
 }
 
-def TransposeOp : Toy_Op<"transpose", [Pure]> {
+def TransposeOp : Toy_Op<"transpose", [Pure, DeclareOpInterfaceMethods<ShapeInferenceOpInterface>]> {
 	let summary = "transpose operation";
 
 	let arguments = (ins F64Tensor:$input);

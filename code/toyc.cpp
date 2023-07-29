@@ -2,7 +2,7 @@
 #include "toy/Dialect.h"
 #include "toy/MLIRGen.h"
 #include "toy/Parser.h"
-#include <memory>
+#include "toy/Passes.h"
 
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/BuiltinOps.h"
@@ -119,7 +119,15 @@ int dumpMLIR() {
 
 		if (mlir::failed(mlir::applyPassManagerCLOptions(pm)))
 			return 4;
-		pm.addNestedPass<mlir::toy::FuncOp>(mlir::createCanonicalizerPass());
+
+		pm.addPass(mlir::createInlinerPass());
+
+		mlir::OpPassManager& optPM = pm.nest<mlir::toy::FuncOp>();
+		optPM.addPass(mlir::toy::createShapeInferencePass());
+		optPM.addPass(mlir::createCanonicalizerPass());
+		optPM.addPass(mlir::createCSEPass());
+
+		//pm.addNestedPass<mlir::toy::FuncOp>(mlir::createCanonicalizerPass());
 
 		if (mlir::failed(pm.run(*module)))
 			return 4;

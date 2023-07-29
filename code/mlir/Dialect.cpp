@@ -4,17 +4,56 @@
 #include "mlir/IR/BuiltinTypes.h"
 #include "mlir/IR/FunctionImplementation.h"
 #include "mlir/IR/OpImplementation.h"
+#include "mlir/Transforms/InliningUtils.h"
 
 using namespace mlir;
 using namespace mlir::toy;
 
 #include "toy/Dialect.cpp.inc"
 
+
+
+struct ToyInlinerInterface : public DialectInlinerInterface {
+	using DialectInlinerInterface::DialectInlinerInterface;
+
+	bool isLegalToInline(Operation* call, Operation* callable,
+		bool wouldBeCloned) {
+
+		return true;
+	}
+
+	bool isLegalToInLine(Operation*, Region*, bool, IRMapping&) {
+		return true;
+	}
+
+	bool isLegalToInLine(Region*, Region*, bool, IRMapping&) {
+		return true;
+	}
+
+	void handleTerminator(Operation* op,
+		ArrayRef<Value> valuesToRepl) const final {
+
+		auto returnOp = cast<ReturnOp>(op);
+
+		assert(returnOp.getNumOperands() == valuesToRepl.size());
+		for (const auto& it : llvm::enumerate(returnOp.getOperands()))
+			valuesToRepl[it.index()].replaceAllUsesWith(it.value());
+	}
+
+	Operation* materializeCallConversion(OpBuilder& builder, Value input,
+		Type resultType,
+		Location conversionLoc) const final {
+			return builder.create<CastOp>(conversionLoc, resultType, input);
+	}
+};
+
+
 void ToyDialect::initialize() {
 	addOperations<
 #define GET_OP_LIST
 #include "toy/Ops.cpp.inc"
 	>();
+	addInterfaces<ToyInlinerInterface>();
 }
 
 
@@ -137,6 +176,30 @@ void AddOp::print(mlir::OpAsmPrinter& p)
 	printBinaryOp(p, *this);
 }
 
+void AddOp::inferShapes()
+{
+	getResult().setType(getLhs().getType());
+}
+
+
+void CastOp::inferShapes()
+{
+	getResult().setType(getInput().getType());
+}
+
+bool CastOp::areCastCompatible(TypeRange inputs, TypeRange outputs)
+{
+	if (inputs.size() != 1 || outputs.size() != 1)
+		return false;
+	
+	TensorType input = llvm::dyn_cast<TensorType>(inputs.front());
+	TensorType output = llvm::dyn_cast<TensorType>(outputs.front());
+
+	if (!input || !output || input.getElementType() != output.getElementType())
+		return false;
+
+	return !input.hasRank() || !output.hasRank() || input == output;
+}
 void GenericCallOp::build(mlir::OpBuilder& builder, mlir::OperationState& state,
 	StringRef callee, ArrayRef<mlir::Value> arguments) {
 
@@ -146,6 +209,23 @@ void GenericCallOp::build(mlir::OpBuilder& builder, mlir::OperationState& state,
 		mlir::SymbolRefAttr::get(builder.getContext(), callee));
 
 }
+
+
+CallInterfaceCallable GenericCallOp::getCallableForCallee()
+{
+	return (*this)->getAttrOfType<SymbolRefAttr>("callee");
+}
+
+void GenericCallOp::setCalleeFromCallable(CallInterfaceCallable callee)
+{
+	(*this)->setAttr("callee", callee.get<SymbolRefAttr>());
+}
+
+Operation::operand_range GenericCallOp::getArgOperands()
+{
+	return getInputs();
+}
+
 
 void FuncOp::build(mlir::OpBuilder& builder, mlir::OperationState& state,
 	llvm::StringRef name, mlir::FunctionType type,
@@ -178,6 +258,26 @@ void FuncOp::print(mlir::OpAsmPrinter& p)
 	);
 }
 
+mlir::Region* FuncOp::getCallableRegion()
+{
+	return &getBody();
+}
+
+llvm::ArrayRef<mlir::Type> FuncOp::getCallableResults()
+{
+	return getFunctionType().getResults();
+}
+
+ArrayAttr FuncOp::getCallableArgAttrs()
+{
+	return getArgAttrs().value_or(nullptr);
+}
+
+ArrayAttr FuncOp::getCallableResAttrs()
+{
+	return getResAttrs().value_or(nullptr);
+}
+
 void MulOp::build(mlir::OpBuilder& builder, mlir::OperationState& state,
 	mlir::Value lhs, mlir::Value rhs)
 {
@@ -192,6 +292,11 @@ mlir::ParseResult MulOp::parse(mlir::OpAsmParser& parser,
 }
 
 void MulOp::print(mlir::OpAsmPrinter& p) { printBinaryOp(p, *this); }
+
+void MulOp::inferShapes()
+{
+	getResult().setType(getLhs().getType());
+}
 
 
 mlir::LogicalResult ReturnOp::verify()
@@ -248,6 +353,14 @@ mlir::LogicalResult TransposeOp::verify() {
 	}
 
 	return mlir::success();
+}
+
+void TransposeOp::inferShapes()
+{
+	auto arrayTy = llvm::cast<RankedTensorType>(getOperand().getType());
+	SmallVector<int64_t, 2> dims(llvm::reverse(arrayTy.getShape()));
+	getResult().setType(RankedTensorType::get(dims, arrayTy.getElementType()));
+
 }
 
 #define GET_OP_CLASSES

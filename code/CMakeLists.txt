@@ -2,12 +2,12 @@ set(LLVM_LINK_COMPONENTS
 	Support 
 	)
 
-add_subdirectory(include)
 
 include_directories("include/")
 include_directories(${CMAKE_CURRENT_BINARY_DIR}/include)
 include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
+add_subdirectory(include)
 
 set(LLVM_TARGET_DEFINITIONS mlir/ToyCombine.td)
 mlir_tablegen(ToyCombine.inc -gen-rewriters)
@@ -19,9 +19,11 @@ add_llvm_executable(toyc-code
 			mlir/MLIRGen.cpp
 			mlir/Dialect.cpp
 			mlir/ToyCombine.cpp
+			mlir/ShapeInferencePass.cpp
 		DEPENDS
 		ToyOpsIncGen
 		ToyCombineIncGen
+		ToyShapeInferenceInterfaceIncGen
 		)
 
 
@@ -30,6 +32,8 @@ add_llvm_executable(toyc-code
 target_link_libraries(toyc-code
 	PRIVATE
 		MLIRAnalysis
+		MLIRCastInterfaces
+		MLIRCallInterfaces
 		MLIRIR
 		MLIRParser
 		MLIRSideEffectInterfaces
