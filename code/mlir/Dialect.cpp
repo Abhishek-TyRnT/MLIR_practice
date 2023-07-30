@@ -17,16 +17,16 @@ struct ToyInlinerInterface : public DialectInlinerInterface {
 	using DialectInlinerInterface::DialectInlinerInterface;
 
 	bool isLegalToInline(Operation* call, Operation* callable,
-		bool wouldBeCloned) {
+		bool wouldBeCloned) const final {
 
 		return true;
 	}
 
-	bool isLegalToInLine(Operation*, Region*, bool, IRMapping&) {
+	bool isLegalToInline(Operation*, Region*, bool, IRMapping&) const final {
 		return true;
 	}
 
-	bool isLegalToInLine(Region*, Region*, bool, IRMapping&) {
+	bool isLegalToInline(Region*, Region*, bool, IRMapping&) const final {
 		return true;
 	}
 
@@ -214,11 +214,6 @@ void GenericCallOp::build(mlir::OpBuilder& builder, mlir::OperationState& state,
 CallInterfaceCallable GenericCallOp::getCallableForCallee()
 {
 	return (*this)->getAttrOfType<SymbolRefAttr>("callee");
-}
-
-void GenericCallOp::setCalleeFromCallable(CallInterfaceCallable callee)
-{
-	(*this)->setAttr("callee", callee.get<SymbolRefAttr>());
 }
 
 Operation::operand_range GenericCallOp::getArgOperands()

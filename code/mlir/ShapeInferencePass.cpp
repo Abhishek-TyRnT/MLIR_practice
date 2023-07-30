@@ -5,6 +5,7 @@
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
+#include <iostream>
 
 #define DEBUG_TYPE "shape-inference"
 
@@ -40,8 +41,6 @@ namespace {
 
 				Operation* op = *nextop;
 				opWorklist.erase(op);
-
-				LLVM_DEBUG(llvm::dbgs() << "Inferring shape for: " << *op << "\n");
 
 				if (auto shapeOp = dyn_cast<ShapeInference>(op))
 				{
