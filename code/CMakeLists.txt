@@ -20,6 +20,7 @@ add_llvm_executable(toyc-code
 			mlir/Dialect.cpp
 			mlir/ToyCombine.cpp
 			mlir/ShapeInferencePass.cpp
+			mlir/LowerToAffineLoops.cpp
 		DEPENDS
 		ToyOpsIncGen
 		ToyCombineIncGen

@@ -4,10 +4,12 @@
 #include "toy/Parser.h"
 #include "toy/Passes.h"
 
+#include "mlir/Dialect/Affine/Passes.h"
 #include "mlir/IR/AsmState.h"
 #include "mlir/IR/BuiltinOps.h"
 #include "mlir/IR/MLIRContext.h"
 #include "mlir/IR/Verifier.h"
+#include "mlir/InitAllDialects.h"
 #include "mlir/Parser/Parser.h"
 #include "mlir/Pass/PassManager.h"
 #include "mlir/Transforms/Passes.h"
@@ -39,13 +41,15 @@ static cl::opt<enum InputType> inputType(
 );
 
 namespace {
-	enum Action { None, DumpAST, DumpMLIR };
+	enum Action { None, DumpAST, DumpMLIR, DumpMLIRAffine };
 }
 
 static cl::opt<enum Action>
 emitAction("emit", cl::desc("Select the kind of output desired"),
 	cl::values(clEnumValN(DumpAST, "ast", "output of the AST dump")),
-	cl::values(clEnumValN(DumpMLIR, "mlir", "output the MLIR dump"))
+	cl::values(clEnumValN(DumpMLIR, "mlir", "output the MLIR dump")),
+	cl::values(clEnumValN(DumpMLIRAffine, "mlir-affine",
+		"output the MLIR dump after affine lowering"))
 	);
 
 
@@ -113,8 +117,14 @@ int dumpMLIR() {
 	if (int error = loadMLIR(sourceMgr, context, module))
 		return error;
 
+	mlir::PassManager pm(module.get()->getName());
 
-	if (enableOpt) {
+	if (mlir::failed(mlir::applyPassManagerCLOptions(pm)))
+		return 4;
+
+	bool isLoweringToAffine = emitAction >= Action::DumpMLIRAffine;
+
+	if (enableOpt || isLoweringToAffine) {
 		mlir::PassManager pm(module.get()->getName());
 
 		if (mlir::failed(mlir::applyPassManagerCLOptions(pm)))
@@ -132,6 +142,24 @@ int dumpMLIR() {
 		if (mlir::failed(pm.run(*module)))
 			return 4;
 	}
+
+	if (isLoweringToAffine)
+	{
+		pm.addPass(mlir::toy::createLowerToAffinePass());
+
+		mlir::OpPassManager& optPM = pm.nest<mlir::func::FuncOp>();
+		optPM.addPass(mlir::createCanonicalizerPass());
+		optPM.addPass(mlir::createCSEPass());
+
+		if (enableOpt)
+		{
+			optPM.addPass(mlir::affine::createLoopFusionPass());
+			optPM.addPass(mlir::affine::createAffineScalarReplacementPass());
+		}
+	}
+
+	if (mlir::failed(pm.run(*module)))
+		return 4;
 
 	module->dump();
 	return 0;
