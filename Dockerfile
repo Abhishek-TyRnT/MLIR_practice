@@ -15,32 +15,15 @@ RUN apt-get install -y wget git libssl-dev &&\
     make install
 
 
-#Building mlir
+#Install bazel
+RUN apt install apt-transport-https curl gnupg -y && \
+    curl -fsSL https://bazel.build/bazel-release.pub.gpg | gpg --dearmor > bazel-archive-keyring.gpg && \
+    mv bazel-archive-keyring.gpg /usr/share/keyrings && \
+    echo "deb [signed-by=/usr/share/keyrings/bazel-archive-keyring.gpg] https://storage.googleapis.com/bazel-apt stable jdk1.8" | tee /etc/apt/sources.list.d/bazel.list && \
+    apt update && \
+    apt install bazel-6.1.0 clang -y
 
-RUN cd /opt && \
-    wget https://github.com/llvm/llvm-project/releases/download/llvmorg-17.0.3/llvm-project-17.0.3.src.tar.xz && \
-    tar -xf llvm-project-17.0.3.src.tar.xz && \
-    cd llvm-project-17.0.3.src && \
-    mkdir build
 
-WORKDIR /opt/llvm-project-17.0.3.src/build
-
-RUN apt-get install -y python3 python3-pip ninja-build clang && \
-    python3 -m pip install numpy pybind11
-
-RUN cmake -G Ninja ../llvm \
-   -DLLVM_ENABLE_PROJECTS="mlir;lld" \
-   -DLLVM_INSTALL_UTILS=ON \
-   -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
-   -DLLVM_BUILD_EXAMPLES=ON \
-   -DLLVM_TARGETS_TO_BUILD=host \
-   -DCMAKE_BUILD_TYPE=Release \
-   -DLLVM_ENABLE_ASSERTIONS=ON \
-   -DCMAKE_CXX_COMPILER=clang++ \
-   -DCMAKE_C_COMPILER=clang \
-   -DPython3_EXECUTABLE=$(which python3) && \
-   cmake --build . -j$(nproc) && \
-   cmake --build . --target install
 
 
 
