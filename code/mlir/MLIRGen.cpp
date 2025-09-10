@@ -99,8 +99,7 @@ private:
 		}
 
 		builder.setInsertionPointToStart(&entryBlock);
-		if (mlir::failed(mlirGen(*funcAST.getBody())))
-		{
+		if (mlir::failed(mlirGen(*funcAST.getBody()))) {
 			function.erase();
 			return nullptr;
 		}
