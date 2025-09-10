@@ -63,6 +63,7 @@ namespace {
 			}
 		}
 
+
 		static bool allOperandsInferred(Operation* op)
 		{
 			return llvm::all_of(op->getOperandTypes(), [](Type operandType) {
