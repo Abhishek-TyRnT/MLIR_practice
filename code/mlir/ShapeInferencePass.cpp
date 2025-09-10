@@ -68,7 +68,7 @@ namespace {
 		{
 			return llvm::all_of(op->getOperandTypes(), [](Type operandType) {
 				return llvm::isa<RankedTensorType>(operandType);
-				});
+			});
 		}
 
 		static bool returnsDynamicShape(Operation* op) {
