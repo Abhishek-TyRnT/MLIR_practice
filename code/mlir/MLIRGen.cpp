@@ -137,8 +137,7 @@ private:
 		auto location = loc(binop.loc());
 
 
-		switch (binop.getOp())
-		{
+		switch (binop.getOp()) {
 		case '+':
 			return builder.create<AddOp>(location, lhs, rhs);
 		case '*':
